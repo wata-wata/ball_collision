@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="UTF-8">
+    <title>ボールの衝突学習システム</title>
+</head>
+
+<body>
+    <h1>ボールの衝突学習システム</h1>
+    <canvas id="myCanvas" width="600" height="400"></canvas>
+    <br>
+    <input type="button" id="btnAnime" value="アニメーション開始" onclick="startAnime()">
+    <input type="button" id="btnStep" value="1ステップ進む" onclick="stepOnce()">
+    <input type="button" id="btnReset" value="リセット" onclick="reset()">
+    <br><br>
+    <label>ボール1の半径: <input type="range" id="r1" value="30" min="1" max="60" oninput="setRadius()"><span id="radius1">30</span></label>
+    <label>ボール2の半径: <input type="range" id="r2" value="40" min="1" max="60" oninput="setRadius()"><span id="radius2">40</span></label>
+    <br>
+    <label>ボール1の初期速度(x方向): <input type="range" id="vx1" value="30" min="-100" max="100" oninput="setVelocity()"><span id="velocity_x1">30</span></label>
+    <label>ボール1の初期速度(y方向): <input type="range" id="vy1" value="0" min="-100" max="100" oninput="setVelocity()"><span id="velocity_y1">0</span></label>
+    <br>
+    <label>ボール2の初期速度(x方向): <input type="range" id="vx2" value="-50" min="-100" max="100" oninput="setVelocity()"><span id="velocity_x2">-50</span></label>
+    <label>ボール2の初期速度(y方向): <input type="range" id="vy2" value="5" min="-100" max="100" oninput="setVelocity()"><span id="velocity_y2">5</span></label>
+    <br><br>
+    <label>重力: <input type="range" id="g" value="9.8" min="0.0" max="40.0" step="0.1" oninput="setGravity()"><span id="gravity">9.8</span></label>
+    <br><br>
+    <label>ボール1の色: <input type="color" id="ballColor1" value="#ff0000" oninput="setColor()"></label>
+    <label>ボール2の色: <input type="color" id="ballColor2" value="#0000ff" oninput="setColor()"></label>
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+
+        let ball; // ボールオブジェクト配列
+        let G = 9.8; // 重力加速度
+        const E = 0.8; // 反発係数
+        const STEP = 0.1; // 時間刻み幅
+
+        let time; // 経過時間
+        let xData, yData; // 座標データ配列
+        const MAX_DATA = 600; // 最大データ数
+
+        let anime; // アニメーションフラグ
+        let animeOnce; // 1ステップアニメーションフラグ
+
+        let color = []; // ボールの色
+
+        color[0] = "rgb(0,0,255)"; // 青
+        color[1] = "rgb(255,165,0)"; // オレンジ
+
+        // ボールオブジェクト生成
+        function Ball(x, y, vx, vy, r) {
+            this.x = x;
+            this.y = y;
+            this.vx = vx;
+            this.vy = vy;
+            this.r = r;
+            this.xPrev = x;
+            this.yPrev = y;
+        }
+
+        // 初期化処理
+        function init() {
+            anime = false;
+            animeOnce = false;
+
+            document.getElementById('r1').disabled = false; // 半径を変更できるようにする
+            document.getElementById('r2').disabled = false; // 半径を変更できるようにする
+            document.getElementById('vx1').disabled = false; // 速度を変更できるようにする
+            document.getElementById('vy1').disabled = false; // 速度を変更できるようにする
+            document.getElementById('vx2').disabled = false; // 速度を変更できるようにする
+            document.getElementById('vy2').disabled = false; // 速度を変更できるようにする
+            document.getElementById('g').disabled = false; // 重力を変更できるようにする
+
+            time = 0;
+            ball = [];
+            // x, y, vx, vy, r
+            ball.push(new Ball(100, 100, 30, 0, 30)); // 初期値を代入(1個目)
+            ball.push(new Ball(350, 100, -50, 5, 40)); // 初期値を代入(2個目)
+
+            // 半径の設定
+            ball[0].r = Number(document.getElementById('r1').value);
+            ball[1].r = Number(document.getElementById('r2').value);
+
+            // 速度の設定
+            ball[0].vx = Number(document.getElementById('vx1').value);
+            ball[0].vy = Number(document.getElementById('vy1').value);
+            ball[1].vx = Number(document.getElementById('vx2').value);
+            ball[1].vy = Number(document.getElementById('vy2').value);
+
+            // 重力の設定
+            G = Number(document.getElementById('g').value);
+
+            xData1 = [ball[0].x];
+            yData1 = [ball[0].y];
+            xData2 = [ball[1].x];
+            yData2 = [ball[1].y];
+            document.getElementById('btnAnime').value = 'アニメーション開始';
+            document.getElementById('btnStep').disabled = false;
+
+            draw();
+        }
+
+        // リセットボタンが押されたとき
+        function reset() {
+            anime = false;
+            animeOnce = false;
+
+            document.getElementById('r1').disabled = false; // 半径を変更できるようにする
+            document.getElementById('r2').disabled = false; // 半径を変更できるようにする
+            document.getElementById('vx1').disabled = false; // 速度を変更できるようにする
+            document.getElementById('vy1').disabled = false; // 速度を変更できるようにする
+            document.getElementById('vx2').disabled = false; // 速度を変更できるようにする
+            document.getElementById('vy2').disabled = false; // 速度を変更できるようにする
+            document.getElementById('g').disabled = false; // 重力を変更できるようにする
+
+            time = 0;
+            ball = [];
+            // x, y, vx, vy, r
+            ball.push(new Ball(100, 100, 30, 0, 30)); // 初期値を代入(1個目)
+            ball.push(new Ball(350, 100, -50, 5, 40)); // 初期値を代入(2個目)
+
+            xData1 = [ball[0].x];
+            yData1 = [ball[0].y];
+            xData2 = [ball[1].x];
+            yData2 = [ball[1].y];
+
+            document.getElementById('btnAnime').value = 'アニメーション開始';
+            document.getElementById('btnStep').disabled = false;
+            document.getElementById('ballColor1').value = "#ff0000";
+            document.getElementById('ballColor2').value = "#0000ff";
+
+            // 半径を戻す
+            document.getElementById('r1').value = "30";
+            document.getElementById('r2').value = "40";
+            document.getElementById('radius1').innerHTML = document.getElementById('r1').value;
+            document.getElementById('radius2').innerHTML = document.getElementById('r2').value;
+
+            // 速度を戻す
+            document.getElementById('vx1').value = "30";
+            document.getElementById('vy1').value = "0";
+            document.getElementById('vx2').value = "-50";
+            document.getElementById('vy2').value = "5";
+            document.getElementById('velocity_x1').innerHTML = document.getElementById('vx1').value;
+            document.getElementById('velocity_y1').innerHTML = document.getElementById('vy1').value;
+            document.getElementById('velocity_x2').innerHTML = document.getElementById('vx2').value;
+            document.getElementById('velocity_y2').innerHTML = document.getElementById('vy2').value;
+
+            // 重力を戻す
+            document.getElementById('g').value = "9.8";
+            document.getElementById('gravity').innerHTML = document.getElementById('g').value;
+
+            draw();
+        }
+
+        // 描画処理
+        function draw() {
+            // キャンバスのリセット
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 枠線の描画
+            ctx.strokeStyle = 'black';
+            ctx.strokeRect(0, 0, canvas.width, canvas.height);
+
+            // 円(ボール1)の描画
+            ctx.beginPath();
+            ctx.arc(ball[0].x, ball[0].y, ball[0].r, 0, 2 * Math.PI);
+            ctx.strokeStyle = document.getElementById('ballColor1').value;
+            ctx.stroke();
+
+            // 円(ボール2)の描画
+            ctx.beginPath();
+            ctx.arc(ball[1].x, ball[1].y, ball[1].r, 0, 2 * Math.PI);
+            ctx.strokeStyle = document.getElementById('ballColor2').value;
+            ctx.stroke();
+
+            // 速度の可視化(矢印を表示する)
+            for (let n = 0; n < ball.length; n++) {
+                if(n==0) ctx.strokeStyle = document.getElementById('ballColor1').value;
+                if(n==1) ctx.strokeStyle = document.getElementById('ballColor2').value;
+                ctx.beginPath();
+                ctx.lineWidth = 3;
+                // x方向
+                ctx.moveTo(ball[n].x, ball[n].y);
+                ctx.lineTo(ball[n].x+ball[n].vx, ball[n].y);
+
+                if(ball[n].vx>7){
+                    ctx.moveTo(ball[n].x+ball[n].vx, ball[n].y);
+                    ctx.lineTo(ball[n].x+ball[n].vx-7, ball[n].y+7);
+                    ctx.stroke();
+                    ctx.moveTo(ball[n].x+ball[n].vx, ball[n].y);
+                    ctx.lineTo(ball[n].x+ball[n].vx-7, ball[n].y-7);
+                }
+                else if(ball[n].vx<-7){
+                    ctx.moveTo(ball[n].x+ball[n].vx, ball[n].y);
+                    ctx.lineTo(ball[n].x+ball[n].vx+7, ball[n].y+7);
+                    ctx.stroke();
+                    ctx.moveTo(ball[n].x+ball[n].vx, ball[n].y);
+                    ctx.lineTo(ball[n].x+ball[n].vx+7, ball[n].y-7);
+                }
+                
+                
+                // y方向
+                ctx.moveTo(ball[n].x, ball[n].y);
+                ctx.lineTo(ball[n].x, ball[n].y+ball[n].vy);
+
+                if(ball[n].vy>7){
+                    ctx.moveTo(ball[n].x, ball[n].y+ball[n].vy);
+                    ctx.lineTo(ball[n].x+7, ball[n].y+ball[n].vy-7);
+                    ctx.stroke();
+                    ctx.moveTo(ball[n].x, ball[n].y+ball[n].vy);
+                    ctx.lineTo(ball[n].x-7, ball[n].y+ball[n].vy-7);
+                }
+                else if(ball[n].vy<-7){
+                    ctx.moveTo(ball[n].x, ball[n].y+ball[n].vy);
+                    ctx.lineTo(ball[n].x+7, ball[n].y+ball[n].vy+7);
+                    ctx.stroke();
+                    ctx.moveTo(ball[n].x, ball[n].y+ball[n].vy);
+                    ctx.lineTo(ball[n].x-7, ball[n].y+ball[n].vy+7);
+                }
+
+                ctx.stroke();
+                ctx.lineWidth = 1;
+            }
+
+            // 軌跡の描画
+            ctx.beginPath();
+            ctx.moveTo(xData1[0], yData1[0]);
+            for (let i = 1; i < xData1.length; i++) {
+                ctx.lineTo(xData1[i], yData1[i]);
+            }
+            ctx.strokeStyle = document.getElementById('ballColor1').value;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(xData2[0], yData2[0]);
+            for (let i = 1; i < xData2.length; i++) {
+                ctx.lineTo(xData2[i], yData2[i]);
+            }
+            ctx.strokeStyle = document.getElementById('ballColor2').value;
+            ctx.stroke();
+
+            ctx.fillStyle = 'black';
+
+            // 経過時間の描画
+            ctx.font = '20px san-serif';
+            ctx.fillText('Time: ' + time.toFixed(2), 10, 25);
+
+            if (anime || animeOnce) {
+                if (animeOnce) animeOnce = false;
+
+                for (let n = 0; n < ball.length; n++) {
+                    // 直前の座標を記録
+                    ball[n].xPrev = ball[n].x;
+                    ball[n].yPrev = ball[n].y;
+
+                    // 座標の更新
+                    ball[n].x = ball[n].x + STEP * ball[n].vx;
+                    ball[n].y = ball[n].y + STEP * ball[n].vy;
+
+                    // 速度の更新
+                    ball[n].vy = ball[n].vy + STEP * G;
+
+                    // 跳ね返りの処理
+                    if (ball[n].x - ball[n].r < 0) {
+                        ball[n].x = ball[n].r;
+                        ball[n].vx = -E * ball[n].vx;
+                    } else if (ball[n].x + ball[n].r > canvas.width) {
+                        ball[n].x = canvas.width - ball[n].r;
+                        ball[n].vx = -E * ball[n].vx;
+                    }
+                    if (ball[n].y - ball[n].r < 0) {
+                        ball[n].y = ball[n].r;
+                        ball[n].vy = -E * ball[n].vy;
+                    } else if (ball[n].y + ball[n].r > canvas.height) {
+                        ball[n].y = canvas.height - ball[n].r;
+                        ball[n].vy = -E * ball[n].vy;
+                    }
+                }
+
+                // ボール同士の衝突(2個の場合)
+                if (Math.hypot(ball[0].x - ball[1].x, ball[0].y - ball[1].y) < ball[0].r + ball[1].r) {
+                    let theta, phi, va0, va1, vb0, vb1;
+
+                    // 作用線に対し水平・垂直方向のベクトルに分解
+                    theta = Math.atan2(ball[0].y - ball[1].y, ball[0].x - ball[1].x);
+                    phi = Math.atan2(ball[0].vy, ball[0].vx) - theta;
+                    va0 = Math.hypot(ball[0].vy, ball[0].vx) * Math.cos(phi);
+                    vb0 = Math.hypot(ball[0].vy, ball[0].vx) * Math.sin(phi);
+                    phi = Math.atan2(ball[1].vy, ball[1].vx) - theta;
+                    va1 = Math.hypot(ball[1].vy, ball[1].vx) * Math.cos(phi);
+                    vb1 = Math.hypot(ball[1].vy, ball[1].vx) * Math.sin(phi);
+
+                    // 作用線方向の速度成分の交換(質量が同じ場合)
+                    let tmp = va0;
+                    va0 = va1;
+                    va1 = tmp;
+
+                    // XY方向のベクトルに変換・合成
+                    ball[0].vx = va0 * Math.cos(theta) - vb0 * Math.sin(theta);
+                    ball[0].vy = va0 * Math.sin(theta) + vb0 * Math.cos(theta);
+                    ball[1].vx = va1 * Math.cos(theta) - vb1 * Math.sin(theta);
+                    ball[1].vy = va1 * Math.sin(theta) + vb1 * Math.cos(theta);
+
+                    // 直前の座標
+                    ball[0].x = ball[0].xPrev;
+                    ball[0].y = ball[0].yPrev;
+                    ball[1].x = ball[1].xPrev;
+                    ball[1].y = ball[1].yPrev;
+                }
+
+                // 経過時間の計算
+                time += STEP;
+
+                // 軌跡データの記録
+                if (xData1.length < MAX_DATA) {
+                    xData1.push(ball[0].x);
+                    yData1.push(ball[0].y);
+                }
+                if (xData2.length < MAX_DATA) {
+                    xData2.push(ball[1].x);
+                    yData2.push(ball[1].y);
+                }
+
+                // 描画の更新
+                requestAnimationFrame(draw);
+            }
+        }
+
+        // アニメーション開始ボタンが押されたとき
+        function startAnime() {
+            document.getElementById('r1').disabled = true; // 半径を変更できないようにする
+            document.getElementById('r2').disabled = true; // 半径を変更できないようにする
+
+            document.getElementById('vx1').disabled = true; // 速度を変更できないようにする
+            document.getElementById('vy1').disabled = true; // 速度を変更できないようにする
+            document.getElementById('vx2').disabled = true; // 速度を変更できないようにする
+            document.getElementById('vy2').disabled = true; // 速度を変更できないようにする
+
+            document.getElementById('g').disabled = true; // 重力を変更できないようにする
+
+            if (anime) {
+                anime = false;
+                document.getElementById('btnAnime').value = 'アニメーション再開';
+                document.getElementById('btnStep').disabled = false;
+            } else {
+                anime = true;
+                document.getElementById('btnAnime').value = 'アニメーション停止';
+                document.getElementById('btnStep').disabled = true;
+                draw();
+            }
+        }
+
+        // 1ステップ進むボタンが押されたとき
+        function stepOnce() {
+            document.getElementById('r1').disabled = true; // 半径を変更できないようにする
+            document.getElementById('r2').disabled = true; // 半径を変更できないようにする
+
+            document.getElementById('vx1').disabled = true; // 速度を変更できないようにする
+            document.getElementById('vy1').disabled = true; // 速度を変更できないようにする
+            document.getElementById('vx2').disabled = true; // 速度を変更できないようにする
+            document.getElementById('vy2').disabled = true; // 速度を変更できないようにする
+
+            document.getElementById('g').disabled = true; // 重力を変更できないようにする
+
+            animeOnce = true;
+            draw();
+        }
+
+        // 半径が変更されたとき
+        function setRadius() {
+            document.getElementById('radius1').innerHTML = document.getElementById('r1').value;
+            document.getElementById('radius2').innerHTML = document.getElementById('r2').value;
+            if (!anime) {
+                init();
+            }
+        }
+
+        // 速度が変更されたとき
+        function setVelocity() {
+            document.getElementById('velocity_x1').innerHTML = document.getElementById('vx1').value;
+            document.getElementById('velocity_y1').innerHTML = document.getElementById('vy1').value;
+            document.getElementById('velocity_x2').innerHTML = document.getElementById('vx2').value;
+            document.getElementById('velocity_y2').innerHTML = document.getElementById('vy2').value;
+            if (!anime) {
+                init();
+            }
+        }
+
+        function setGravity() {
+            document.getElementById('gravity').innerHTML = document.getElementById('g').value;
+            if (!anime) {
+                init();
+            }
+        }
+
+        // ボールの色が変更されたとき
+        function setColor() {
+            if (!anime) {
+                draw();
+            }
+        }
+
+        init();
+    </script>
+</body>
+
+</html>
